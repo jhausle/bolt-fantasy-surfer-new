@@ -1,16 +1,19 @@
+// @deno-types="https://deno.land/std@0.168.0/http/server.ts"
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+// @deno-types="https://esm.sh/cheerio@1.0.0-rc.12"
 import { load } from 'https://esm.sh/cheerio@1.0.0-rc.12'
+// @deno-types="https://esm.sh/@supabase/supabase-js@2"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 interface Surfer {
   name: string;
   country: string;
-  points: number;
   isPowerSurfer: boolean;
 }
 
@@ -78,6 +81,20 @@ async function getSurferId(supabase: any, firstName: string, lastName: string): 
   }
 }
 
+const parseSurferRow = (row: cheerio.Element): Surfer | null => {
+  const $row = $(row);
+  const name = $row.find('.athlete-name').text().trim();
+  const country = $row.find('.athlete-country-name').text().trim();
+  
+  console.log(`Parsing row for ${name || 'unknown'} from ${country || 'unknown country'}`);
+  
+  // Check for power surfer icon/indicator
+  const isPowerSurfer = $row.find('.power-athlete').length > 0;
+  console.log(`Is power surfer: ${isPowerSurfer}`);
+
+  return name ? { name, country, isPowerSurfer } : null;
+};
+
 async function updateRosterInDatabase(supabase: any, userId: string, contestId: string, roster: Roster) {
   try {
     // Convert surfer names to IDs
@@ -136,41 +153,6 @@ async function updateRosterInDatabase(supabase: any, userId: string, contestId: 
 
     if (rosterError) throw rosterError;
 
-    // Update surfer points
-    const pointsPromises = validSurfers.map(({ id, surfer }) =>
-      supabase
-        .from('surfer_points')
-        .upsert({
-          surfer_id: id,
-          contest_id: contestId,
-          league_type: 'wsl',
-          points: surfer.points
-        }, {
-          onConflict: 'surfer_id,contest_id,league_type'
-        })
-    );
-
-    await Promise.all(pointsPromises);
-
-    // Calculate and update contest standings
-    const totalPoints = validSurfers.reduce((sum, { surfer, id }) => {
-      const points = surfer.points;
-      return sum + (surfer.isPowerSurfer ? points * 2 : points);
-    }, 0);
-
-    const { error: standingsError } = await supabase
-      .from('contest_standings')
-      .upsert({
-        user_id: userId,
-        contest_id: contestId,
-        league_type: 'wsl',
-        points: totalPoints
-      }, {
-        onConflict: 'user_id,contest_id,league_type'
-      });
-
-    if (standingsError) throw standingsError;
-
     return true;
   } catch (error) {
     console.error('Error updating database:', error);
@@ -219,45 +201,6 @@ async function fetchRoster(wslId: string): Promise<Roster> {
   if (!mensSection.length) {
     throw new Error("Could not find men's championship tour section");
   }
-
-  // Helper function to parse a surfer row
-  const parseSurferRow = (row: cheerio.Element): Surfer | null => {
-    const $row = $(row);
-    const name = $row.find('.athlete-name').text().trim();
-    const country = $row.find('.athlete-country-name').text().trim();
-    
-    console.log(`Parsing row for ${name || 'unknown'} from ${country || 'unknown country'}`);
-    
-    // Find the total points cell (last cell)
-    let points = 0;
-    let isPowerSurfer = false;
-    const pointsCell = $row.find('.teamAthleteFantasyEventPts.points.total-points.last');
-    console.log(`Found points cell: ${pointsCell.length > 0 ? 'yes' : 'no'}`);
-    
-    if (pointsCell.length) {
-      // Check for power surfer (2x multiplier)
-      const twoX = pointsCell.find('span[class="two-x"]');
-      isPowerSurfer = twoX.length > 0;
-      console.log(`Is power surfer: ${isPowerSurfer}`);
-
-      // Try to find points in power athlete div first
-      const powerAthlete = pointsCell.find('.power-athlete');
-      console.log(`Has power athlete div: ${powerAthlete.length > 0 ? 'yes' : 'no'}`);
-      
-      if (powerAthlete.length) {
-        const powerAthletePoints = powerAthlete.find('span:last').text().trim();
-        console.log(`Power athlete points text: "${powerAthletePoints}"`);
-        points = parseFloat(powerAthletePoints);
-      } else {
-        const regularPoints = pointsCell.find('span').first().text().trim();
-        console.log(`Regular points text: "${regularPoints}"`);
-        points = parseFloat(regularPoints) || 0;
-      }
-    }
-
-    console.log(`Final parsed points: ${points} (Power Surfer: ${isPowerSurfer})`);
-    return name ? { name, country, points, isPowerSurfer } : null;
-  };
 
   // Parse each tier
   ['A', 'B', 'C'].forEach((tier) => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 
@@ -216,11 +216,19 @@ const MemberRoster: React.FC<MemberRosterProps> = ({ contest, user, onClose }) =
                           </div>
                           <div className="flex items-center gap-4 mt-1">
                             <p className="text-sm text-gray-500">{surfer.country}</p>
-                            <p className="text-sm text-gray-500">Points: {points.toLocaleString()}</p>
                           </div>
                         </div>
-                        {wslRoster.power_surfer_id === surfer.id && (
-                          <Trophy className="w-5 h-5 text-yellow-500" />
+                        {wslRoster.power_surfer_id === surfer.id ? (
+                          <div className="flex flex-col items-center">
+                            <Zap className="w-5 h-5 text-yellow-500" />
+                            <span className="text-sm font-medium text-gray-900 mt-1">
+                              {points.toLocaleString()} pts
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium text-gray-900">
+                            {points.toLocaleString()} pts
+                          </span>
                         )}
                       </div>
                     );
@@ -260,11 +268,11 @@ const MemberRoster: React.FC<MemberRosterProps> = ({ contest, user, onClose }) =
                           </p>
                           <div className="flex items-center gap-4 mt-1">
                             <p className="text-sm text-gray-500">{surfer.country}</p>
-                            <p className="text-sm text-gray-500">Points: {points.toLocaleString()}</p>
+                            <p className="text-sm text-gray-500">${price?.toLocaleString()}M</p>
                           </div>
                         </div>
-                        <span className="text-sm font-medium text-gray-700">
-                          ${price?.toLocaleString()}M
+                        <span className="text-sm font-medium text-gray-900">
+                          {points.toLocaleString()} pts
                         </span>
                       </div>
                     );
