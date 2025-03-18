@@ -4,12 +4,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { load } from 'https://esm.sh/cheerio@1.0.0-rc.12'
 // @deno-types="https://esm.sh/@supabase/supabase-js@2"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
+import { corsHeaders } from '../_shared/cors.ts'
 
 interface Surfer {
   name: string;
@@ -82,7 +77,7 @@ async function getSurferId(supabase: any, firstName: string, lastName: string): 
 }
 
 const parseSurferRow = (row: cheerio.Element): Surfer | null => {
-  const $row = $(row);
+  const $ = load(row)
   const name = $row.find('.athlete-name').text().trim();
   const country = $row.find('.athlete-country-name').text().trim();
   
@@ -160,10 +155,10 @@ async function updateRosterInDatabase(supabase: any, userId: string, contestId: 
   }
 }
 
-async function fetchRoster(wslId: string): Promise<Roster> {
-  console.log(`\nFetching roster for WSL ID: ${wslId}`);
+const fetchRoster = async (userId: string, stopNumber: number): Promise<Roster> => {
+  console.log(`\nFetching roster for WSL ID: ${userId}`);
   
-  const response = await fetch(`https://ctfantasy.worldsurfleague.com/team/${wslId}/roster?displayType=gameStop&gameStopNumber=1`, {
+  const response = await fetch(`https://ctfantasy.worldsurfleague.com/team/${userId}/roster?gameStopNumber=${stopNumber}`, {
     headers: {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
@@ -243,6 +238,7 @@ async function fetchRoster(wslId: string): Promise<Roster> {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -284,7 +280,7 @@ serve(async (req) => {
     for (const user of users) {
       try {
         console.log(`\nProcessing user ${user.id} (WSL ID: ${user.wsl_id})`);
-        const roster = await fetchRoster(user.wsl_id!);
+        const roster = await fetchRoster(user.wsl_id!, 1);
         
         // Update database with roster information
         await updateRosterInDatabase(supabase, user.id, contestId, roster);

@@ -48,29 +48,33 @@ const RosterUpdater: React.FC<{ selectedContestId?: string }> = ({ selectedConte
 
       console.log('Contest being used:', contest);
 
-      // First update rosters
-      const rosterResponse = await supabase.functions.invoke('fetch-wsl-rosters', {
-        body: { contestId: contest.id },
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      // Use supabase client's invoke method
+      const { data: rosterData, error: rosterError } = await supabase.functions.invoke(
+        'fetch-wsl-roster',  // Make sure this matches your function name exactly
+        {
+          body: { contestId: contest.id }
         }
-      });
+      );
 
-      if (rosterResponse.error) {
-        throw new Error(`Failed to update rosters: ${rosterResponse.error.message}`);
+      if (rosterError) {
+        throw new Error(`Failed to update rosters: ${rosterError.message}`);
       }
 
-      // Then update points
-      const pointsResponse = await supabase.functions.invoke('fetch-wsl-points', {
-        body: { 
-          contestId: contest.id,
-          stopNumber: contest.stop_number
-        }
-      });
+      console.log('Roster update response:', rosterData);
 
-      if (pointsResponse.error) {
-        throw new Error(`Failed to update points: ${pointsResponse.error.message}`);
+      // Then update points
+      const { data: pointsData, error: pointsError } = await supabase.functions.invoke(
+        'fetch-wsl-points',
+        {
+          body: { 
+            contestId: contest.id,
+            stopNumber: contest.stop_number
+          }
+        }
+      );
+
+      if (pointsError) {
+        throw new Error(`Failed to update points: ${pointsError.message}`);
       }
 
       setMessage('Successfully updated rosters and points!');
