@@ -17,8 +17,6 @@ const RosterUpdater: React.FC<{ selectedContestId?: string }> = ({ selectedConte
     try {
       let contest;
       
-      console.log('Selected contest ID:', selectedContestId);
-
       if (selectedContestId) {
         const { data, error: contestError } = await supabase
           .from('contests')
@@ -46,35 +44,24 @@ const RosterUpdater: React.FC<{ selectedContestId?: string }> = ({ selectedConte
           : 'No active contest found. Please ensure a contest is marked as active.');
       }
 
-      console.log('Contest being used:', contest);
+      // Simple function invocation without extra headers
+      const rosterResponse = await supabase.functions.invoke('fetch-wsl-rosters', {
+        body: { contestId: contest.id }
+      });
 
-      // Use supabase client's invoke method
-      const { data: rosterData, error: rosterError } = await supabase.functions.invoke(
-        'fetch-wsl-roster',  // Make sure this matches your function name exactly
-        {
-          body: { contestId: contest.id }
-        }
-      );
-
-      if (rosterError) {
-        throw new Error(`Failed to update rosters: ${rosterError.message}`);
+      if (rosterResponse.error) {
+        throw new Error(`Failed to update rosters: ${rosterResponse.error.message}`);
       }
 
-      console.log('Roster update response:', rosterData);
-
-      // Then update points
-      const { data: pointsData, error: pointsError } = await supabase.functions.invoke(
-        'fetch-wsl-points',
-        {
-          body: { 
-            contestId: contest.id,
-            stopNumber: contest.stop_number
-          }
+      const pointsResponse = await supabase.functions.invoke('fetch-wsl-points', {
+        body: { 
+          contestId: contest.id,
+          stopNumber: contest.stop_number
         }
-      );
+      });
 
-      if (pointsError) {
-        throw new Error(`Failed to update points: ${pointsError.message}`);
+      if (pointsResponse.error) {
+        throw new Error(`Failed to update points: ${pointsResponse.error.message}`);
       }
 
       setMessage('Successfully updated rosters and points!');
