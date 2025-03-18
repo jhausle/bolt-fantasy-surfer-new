@@ -45,7 +45,7 @@ const RosterUpdater: React.FC<{ selectedContestId?: string }> = ({ selectedConte
       }
 
       // Simple function invocation without extra headers
-      const rosterResponse = await supabase.functions.invoke('fetch-wsl-rosters', {
+      const rosterResponse = await supabase.functions.invoke('fetch-wsl-roster', {
         body: { contestId: contest.id }
       });
 
